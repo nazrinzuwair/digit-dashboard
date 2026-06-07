@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DigIT — Live Queue Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #0B1628;
+    --navy2: #112240;
+    --panel: #0d1f3c;
+    --accent: #4FC3F7;
+    --accent2: #00E5C4;
+    --warn: #FFB347;
+    --danger: #FF6B6B;
+    --green: #69F0AE;
+    --text: #E8F4FD;
+    --muted: #7B9BB8;
+    --border: rgba(79,195,247,0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--navy);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(79,195,247,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(79,195,247,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Glow orbs */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -20%;
+    right: -10%;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(79,195,247,0.08) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 0 24px; }
+
+  /* ── HEADER ── */
+  header {
+    padding: 20px 0 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .logo-mark {
+    width: 42px; height: 42px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 800; color: var(--navy);
+    letter-spacing: -1px;
+    box-shadow: 0 0 20px rgba(79,195,247,0.3);
+  }
+
+  .logo-text { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+  .logo-text span { color: var(--accent); }
+
+  .logo-sub { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-top: 1px; }
+
+  .header-right { display: flex; align-items: center; gap: 20px; }
+
+  .live-badge {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(105,240,174,0.1);
+    border: 1px solid rgba(105,240,174,0.3);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; color: var(--green);
+    letter-spacing: 1px;
+  }
+
+  .live-dot {
+    width: 8px; height: 8px;
+    background: var(--green);
+    border-radius: 50%;
+    animation: pulse 1.5s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  .clock {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px; color: var(--muted);
+  }
+
+  .location-pill {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 12px; color: var(--muted);
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  /* ── LOCATION BAR ── */
+  .location-bar {
+    padding: 14px 0;
+    display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+
+  .location-tab {
+    padding: 7px 18px;
+    border-radius: 8px;
+    font-size: 12px; font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+  }
+
+  .location-tab.active {
+    background: rgba(79,195,247,0.15);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .location-tab:not(.active) {
+    color: var(--muted);
+    border-color: var(--border);
+  }
+
+  .location-tab:not(.active):hover {
+    border-color: var(--muted);
+    color: var(--text);
+  }
+
+  /* ── STATS ROW ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    padding: 24px 0 0;
+  }
+
+  .stat-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 22px;
+    position: relative;
+    overflow: hidden;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+
+  .stat-card.blue::before { background: linear-gradient(90deg, var(--accent), transparent); }
+  .stat-card.teal::before { background: linear-gradient(90deg, var(--accent2), transparent); }
+  .stat-card.warn::before { background: linear-gradient(90deg, var(--warn), transparent); }
+  .stat-card.green::before { background: linear-gradient(90deg, var(--green), transparent); }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .stat-card:nth-child(1) { animation-delay: 0.1s; }
+  .stat-card:nth-child(2) { animation-delay: 0.2s; }
+  .stat-card:nth-child(3) { animation-delay: 0.3s; }
+  .stat-card:nth-child(4) { animation-delay: 0.4s; }
+
+  .stat-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 1.5px;
+    margin-bottom: 10px;
+  }
+
+  .stat-value {
+    font-size: 48px; font-weight: 800;
+    line-height: 1; letter-spacing: -2px;
+    margin-bottom: 6px;
+  }
+
+  .stat-value.blue { color: var(--accent); }
+  .stat-value.teal { color: var(--accent2); }
+  .stat-value.warn { color: var(--warn); }
+  .stat-value.green { color: var(--green); }
+
+  .stat-change {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; color: var(--muted);
+  }
+
+  .stat-icon {
+    position: absolute;
+    right: 18px; top: 18px;
+    font-size: 28px; opacity: 0.15;
+  }
+
+  /* ── MAIN GRID ── */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 16px;
+    padding: 16px 0;
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    animation: fadeUp 0.5s ease 0.4s both;
+  }
+
+  .panel-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  .panel-title {
+    font-size: 13px; font-weight: 700; letter-spacing: 0.3px;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .panel-title .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 6px var(--accent);
+  }
+
+  .panel-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; color: var(--muted);
+    background: rgba(255,255,255,0.05);
+    padding: 3px 10px; border-radius: 20px;
+  }
+
+  /* ── QUEUE VISUALISER ── */
+  .queue-vis { padding: 24px 20px; }
+
+  .queue-track {
+    height: 64px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    display: flex; align-items: center;
+    padding: 8px 12px;
+    gap: 6px;
+    margin-bottom: 16px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .queue-track::after {
+    content: 'TAXI RANK';
+    position: absolute;
+    right: 14px;
+    font-family: 'DM Mono', monospace;
+    font-size: 9px; color: var(--muted);
+    letter-spacing: 2px;
+  }
+
+  .person {
+    font-size: 20px;
+    animation: personPop 0.3s ease both;
+    filter: drop-shadow(0 0 4px rgba(79,195,247,0.4));
+  }
+
+  @keyframes personPop {
+    from { opacity: 0; transform: scale(0.5); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  .group-divider {
+    width: 1px; height: 36px;
+    background: rgba(79,195,247,0.2);
+    margin: 0 4px;
+  }
+
+  /* ── GROUP TABLE ── */
+  .group-table { padding: 0 0 8px; }
+
+  .group-row {
+    display: grid;
+    grid-template-columns: 40px 1fr auto auto;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+    cursor: default;
+  }
+
+  .group-row:hover { background: rgba(255,255,255,0.02); }
+  .group-row:last-child { border-bottom: none; }
+
+  .group-num {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: rgba(79,195,247,0.1);
+    border: 1px solid rgba(79,195,247,0.2);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px; color: var(--accent);
+    font-weight: 500;
+  }
+
+  .group-info { display: flex; flex-direction: column; gap: 2px; }
+
+  .group-size { font-size: 13px; font-weight: 600; }
+
+  .group-bags {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; color: var(--muted);
+  }
+
+  .taxi-needed {
+    background: rgba(79,195,247,0.1);
+    border: 1px solid rgba(79,195,247,0.3);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; color: var(--accent);
+    white-space: nowrap;
+  }
+
+  .wait-time {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; color: var(--muted);
+    text-align: right;
+  }
+
+  /* ── RIGHT PANEL ── */
+  .right-col { display: flex; flex-direction: column; gap: 16px; }
+
+  /* ── TAXI STATUS ── */
+  .taxi-list { padding: 8px 0; }
+
+  .taxi-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+    animation: fadeUp 0.4s ease both;
+  }
+
+  .taxi-row:last-child { border-bottom: none; }
+
+  .taxi-id {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px; font-weight: 500;
+  }
+
+  .taxi-status {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 600;
+    padding: 4px 10px; border-radius: 20px;
+  }
+
+  .taxi-status.available {
+    background: rgba(105,240,174,0.1);
+    color: var(--green);
+    border: 1px solid rgba(105,240,174,0.2);
+  }
+
+  .taxi-status.enroute {
+    background: rgba(79,195,247,0.1);
+    color: var(--accent);
+    border: 1px solid rgba(79,195,247,0.2);
+  }
+
+  .taxi-status.busy {
+    background: rgba(255,107,107,0.1);
+    color: var(--danger);
+    border: 1px solid rgba(255,107,107,0.2);
+  }
+
+  .taxi-status-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: currentColor;
+  }
+
+  /* ── CHART ── */
+  .chart-area { padding: 16px 20px 8px; }
+
+  .bar-chart {
+    display: flex; align-items: flex-end; gap: 6px;
+    height: 80px;
+  }
+
+  .bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+
+  .bar {
+    width: 100%;
+    border-radius: 4px 4px 0 0;
+    background: linear-gradient(180deg, var(--accent), rgba(79,195,247,0.3));
+    transition: height 0.8s cubic-bezier(0.34,1.56,0.64,1);
+    min-height: 4px;
+  }
+
+  .bar-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px; color: var(--muted);
+  }
+
+  /* ── ALERT BANNER ── */
+  .alert-banner {
+    margin: 0 20px 16px;
+    background: rgba(255,179,71,0.08);
+    border: 1px solid rgba(255,179,71,0.25);
+    border-radius: 10px;
+    padding: 10px 14px;
+    display: flex; align-items: flex-start; gap: 10px;
+    font-size: 12px; color: var(--warn);
+    animation: fadeUp 0.5s ease 0.6s both;
+  }
+
+  .alert-icon { font-size: 14px; margin-top: 1px; flex-shrink: 0; }
+
+  /* ── PROCESSING STATUS ── */
+  .proc-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .proc-row:last-child { border-bottom: none; }
+
+  .proc-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; color: var(--muted);
+  }
+
+  .proc-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; font-weight: 500;
+  }
+
+  .proc-value.ok { color: var(--green); }
+  .proc-value.warn { color: var(--warn); }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 14px 0;
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 8px;
+  }
+
+  .footer-left {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; color: var(--muted);
+    display: flex; align-items: center; gap: 16px;
+  }
+
+  .footer-aws {
+    display: flex; align-items: center; gap: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; color: var(--muted);
+  }
+
+  .aws-badge {
+    background: rgba(255,153,0,0.1);
+    border: 1px solid rgba(255,153,0,0.2);
+    border-radius: 4px;
+    padding: 2px 8px;
+    color: #FF9900;
+    font-size: 9px; font-weight: 700; letter-spacing: 1px;
+  }
+
+  @media (max-width: 900px) {
+    .stats-row { grid-template-columns: repeat(2,1fr); }
+    .main-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <div class="logo-mark">Di</div>
+      <div>
+        <div class="logo-text">Dig<span>IT</span></div>
+        <div class="logo-sub">Queue Intelligence Platform</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+      <div class="clock" id="clock">--:--:--</div>
+      <div class="location-pill">📍 Stoke-on-Trent Station</div>
+    </div>
+  </header>
+
+  <!-- LOCATION TABS -->
+  <div class="location-bar">
+    <div class="location-tab active">Stoke-on-Trent Station</div>
+    <div class="location-tab">Birmingham New St</div>
+    <div class="location-tab">Manchester Piccadilly</div>
+    <div class="location-tab">Leeds Central</div>
+    <div class="location-tab">+ Add Location</div>
+  </div>
+
+  <!-- STATS ROW -->
+  <div class="stats-row">
+    <div class="stat-card blue">
+      <div class="stat-icon">👥</div>
+      <div class="stat-label">People in Queue</div>
+      <div class="stat-value blue" id="queueCount">15</div>
+      <div class="stat-change">↑ 3 in last 5 mins</div>
+    </div>
+    <div class="stat-card teal">
+      <div class="stat-icon">🚖</div>
+      <div class="stat-label">Taxis Required</div>
+      <div class="stat-value teal" id="taxisNeeded">6</div>
+      <div class="stat-change">Based on group analysis</div>
+    </div>
+    <div class="stat-card warn">
+      <div class="stat-icon">⏱</div>
+      <div class="stat-label">Avg Wait Time</div>
+      <div class="stat-value warn" id="waitTime">4<span style="font-size:22px;letter-spacing:0">m</span></div>
+      <div class="stat-change">Max today: 11 mins</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-icon">📷</div>
+      <div class="stat-label">Images Processed</div>
+      <div class="stat-value green" id="imgCount">2847</div>
+      <div class="stat-change">Last image: 2s ago</div>
+    </div>
+  </div>
+
+  <!-- ALERT -->
+  <div style="padding: 16px 0 0;">
+    <div class="alert-banner">
+      <div class="alert-icon">⚠</div>
+      <div><strong>Queue building</strong> — 15 people waiting, only 2 taxis currently available at rank. Consider dispatching additional vehicles. Group of 6 detected — requires large vehicle.</div>
+    </div>
+  </div>
+
+  <!-- MAIN GRID -->
+  <div class="main-grid">
+
+    <!-- LEFT: Queue + Groups -->
+    <div>
+      <div class="panel" style="margin-bottom:16px">
+        <div class="panel-header">
+          <div class="panel-title"><div class="dot"></div> Live Queue View</div>
+          <div class="panel-badge" id="lastUpdate">Updated 2s ago</div>
+        </div>
+        <div class="queue-vis">
+          <div class="queue-track" id="queueTrack"></div>
+          <div style="display:flex;gap:16px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);">
+            <span>🟦 Solo traveller</span>
+            <span>🟩 Pair</span>
+            <span>🟨 Group 3–4</span>
+            <span>🟥 Large group 5+</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title"><div class="dot" style="background:var(--accent2)"></div> Group Breakdown</div>
+          <div class="panel-badge">6 groups detected</div>
+        </div>
+        <div class="group-table">
+          <div class="group-row">
+            <div class="group-num">G1</div>
+            <div class="group-info">
+              <div class="group-size">1 person — Solo</div>
+              <div class="group-bags">🧳 1 large bag</div>
+            </div>
+            <div class="taxi-needed">1 taxi</div>
+            <div class="wait-time">2 min wait</div>
+          </div>
+          <div class="group-row">
+            <div class="group-num">G2</div>
+            <div class="group-info">
+              <div class="group-size">4 people — Group</div>
+              <div class="group-bags">🧳 2 large · 👜 2 small</div>
+            </div>
+            <div class="taxi-needed">1 taxi</div>
+            <div class="wait-time">3 min wait</div>
+          </div>
+          <div class="group-row">
+            <div class="group-num">G3</div>
+            <div class="group-info">
+              <div class="group-size">4 people — Group</div>
+              <div class="group-bags">👜 4 small bags</div>
+            </div>
+            <div class="taxi-needed">1 taxi</div>
+            <div class="wait-time">4 min wait</div>
+          </div>
+          <div class="group-row">
+            <div class="group-num">G4</div>
+            <div class="group-info">
+              <div class="group-size">1 person — Solo</div>
+              <div class="group-bags">🎒 1 backpack</div>
+            </div>
+            <div class="taxi-needed">1 taxi</div>
+            <div class="wait-time">5 min wait</div>
+          </div>
+          <div class="group-row">
+            <div class="group-num">G5</div>
+            <div class="group-info">
+              <div class="group-size">4 people — Group</div>
+              <div class="group-bags">🧳 3 large · 🎒 1 backpack</div>
+            </div>
+            <div class="taxi-needed">1 taxi</div>
+            <div class="wait-time">6 min wait</div>
+          </div>
+          <div class="group-row">
+            <div class="group-num">G6</div>
+            <div class="group-info">
+              <div class="group-size" style="color:var(--warn)">6 people — Large ⚠</div>
+              <div class="group-bags">🧳 4 large · 👜 2 small</div>
+            </div>
+            <div class="taxi-needed" style="color:var(--warn);border-color:rgba(255,179,71,0.3)">2 taxis</div>
+            <div class="wait-time">8 min wait</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COL -->
+    <div class="right-col">
+
+      <!-- Taxi Status -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title"><div class="dot" style="background:var(--green)"></div> Taxi Status</div>
+          <div class="panel-badge">8 registered</div>
+        </div>
+        <div class="taxi-list">
+          <div class="taxi-row"><span class="taxi-id">TXI-001</span><div class="taxi-status available"><div class="taxi-status-dot"></div>At Rank</div></div>
+          <div class="taxi-row"><span class="taxi-id">TXI-002</span><div class="taxi-status available"><div class="taxi-status-dot"></div>At Rank</div></div>
+          <div class="taxi-row"><span class="taxi-id">TXI-003</span><div class="taxi-status enroute"><div class="taxi-status-dot"></div>En Route</div></div>
+          <div class="taxi-row"><span class="taxi-id">TXI-004</span><div class="taxi-status enroute"><div class="taxi-status-dot"></div>En Route</div></div>
+          <div class="taxi-row"><span class="taxi-id">TXI-005</span><div class="taxi-status busy"><div class="taxi-status-dot"></div>Occupied</div></div>
+          <div class="taxi-row"><span class="taxi-id">TXI-006</span><div class="taxi-status busy"><div class="taxi-status-dot"></div>Occupied</div></div>
+          <div class="taxi-row"><span class="taxi-id">TXI-007</span><div class="taxi-status busy"><div class="taxi-status-dot"></div>Occupied</div></div>
+          <div class="taxi-row"><span class="taxi-id">TXI-008</span><div class="taxi-status enroute"><div class="taxi-status-dot"></div>En Route</div></div>
+        </div>
+      </div>
+
+      <!-- Queue History Chart -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title"><div class="dot" style="background:var(--warn)"></div> Queue History</div>
+          <div class="panel-badge">Last 10 mins</div>
+        </div>
+        <div class="chart-area">
+          <div class="bar-chart" id="barChart"></div>
+        </div>
+      </div>
+
+      <!-- AWS Processing Status -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title"><div class="dot" style="background:var(--accent2)"></div> AWS Backend Status</div>
+          <div class="panel-badge">eu-west-2</div>
+        </div>
+        <div>
+          <div class="proc-row"><div class="proc-label">Lambda (Image Processor)</div><div class="proc-value ok">● Running</div></div>
+          <div class="proc-row"><div class="proc-label">S3 Raw Images Bucket</div><div class="proc-value ok">● Active</div></div>
+          <div class="proc-row"><div class="proc-label">Aurora DB Cluster</div><div class="proc-value ok">● Available</div></div>
+          <div class="proc-row"><div class="proc-label">Load Balancer (digit-alb)</div><div class="proc-value ok">● Active</div></div>
+          <div class="proc-row"><div class="proc-label">EC2 Instances Running</div><div class="proc-value ok">● 2 / 2</div></div>
+          <div class="proc-row"><div class="proc-label">WAF Rules Active</div><div class="proc-value ok">● 12 rules</div></div>
+          <div class="proc-row"><div class="proc-label">Images Anonymised</div><div class="proc-value ok">● 2847 today</div></div>
+          <div class="proc-row"><div class="proc-label">Monthly Report</div><div class="proc-value warn">● Scheduled Jul 1</div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-left">
+      <span>© 2026 DigIT — Queue Intelligence</span>
+      <span>CB017663 · Fathima Nazrin Mohamed Zuwair</span>
+      <span>COMP70034 Cloud Computing</span>
+    </div>
+    <div class="footer-aws">
+      <span>Powered by</span>
+      <span class="aws-badge">AWS</span>
+      <span>S3 · Lambda · Aurora · EC2 · Cognito · WAF</span>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+  // ── Clock ──
+  function updateClock() {
+    const now = new Date();
+    document.getElementById('clock').textContent =
+      now.toLocaleTimeString('en-GB', { hour12: false });
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // ── Queue people visualiser ──
+  const groups = [
+    { size: 1, emoji: '🧍' },
+    { size: 4, emoji: '👨‍👩‍👧‍👦' },
+    { size: 4, emoji: '👨‍👩‍👧‍👦' },
+    { size: 1, emoji: '🧍' },
+    { size: 4, emoji: '👨‍👩‍👧‍👦' },
+    { size: 6, emoji: '👥' },
+  ];
+
+  const emojis = ['🧍', '👤', '🚶', '🙋', '🧑', '👨', '👩'];
+
+  function buildQueue() {
+    const track = document.getElementById('queueTrack');
+    track.innerHTML = '';
+    groups.forEach((g, gi) => {
+      if (gi > 0) {
+        const div = document.createElement('div');
+        div.className = 'group-divider';
+        track.appendChild(div);
+      }
+      for (let i = 0; i < Math.min(g.size, 4); i++) {
+        const span = document.createElement('span');
+        span.className = 'person';
+        span.style.animationDelay = (gi * 0.1 + i * 0.05) + 's';
+        span.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+        track.appendChild(span);
+      }
+      if (g.size > 4) {
+        const span = document.createElement('span');
+        span.className = 'person';
+        span.style.fontSize = '12px';
+        span.style.color = 'var(--muted)';
+        span.textContent = '+' + (g.size - 4);
+        track.appendChild(span);
+      }
+    });
+  }
+  buildQueue();
+
+  // ── Bar chart ──
+  const barData = [8, 11, 9, 13, 10, 14, 12, 15, 13, 15];
+  const labels = ['−9m','−8m','−7m','−6m','−5m','−4m','−3m','−2m','−1m','now'];
+  const maxVal = Math.max(...barData);
+
+  function buildChart() {
+    const chart = document.getElementById('barChart');
+    chart.innerHTML = '';
+    barData.forEach((v, i) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'bar-wrap';
+      const bar = document.createElement('div');
+      bar.className = 'bar';
+      bar.style.height = '0px';
+      const label = document.createElement('div');
+      label.className = 'bar-label';
+      label.textContent = labels[i];
+      wrap.appendChild(bar);
+      wrap.appendChild(label);
+      chart.appendChild(wrap);
+      setTimeout(() => {
+        bar.style.height = Math.round((v / maxVal) * 72) + 'px';
+      }, 100 + i * 60);
+    });
+  }
+  buildChart();
+
+  // ── Live update simulation ──
+  let seconds = 2;
+  setInterval(() => {
+    seconds += 5;
+    // Randomly fluctuate queue count
+    const base = 15;
+    const newCount = base + Math.floor(Math.random() * 5) - 2;
+    document.getElementById('queueCount').textContent = Math.max(10, newCount);
+    document.getElementById('imgCount').textContent =
+      (parseInt(document.getElementById('imgCount').textContent) + 1).toLocaleString();
+    document.getElementById('lastUpdate').textContent =
+      seconds < 60 ? `Updated ${seconds}s ago` : `Updated ${Math.floor(seconds/60)}m ago`;
+    if (seconds > 30) seconds = 5;
+  }, 5000);
+</script>
+</body>
+</html>
